@@ -1,0 +1,86 @@
+# A poller, not a pusher. Nothing in the app repos triggers this workflow: it
+# reads their latest releases on a schedule and bumps whatever moved.
+#
+# Why this shape, rather than a job chained into each app's release workflow
+# the way Colony pushes colony-bin to the AUR: GitHub suppresses workflow
+# triggers for events created by the default GITHUB_TOKEN, which is how
+# colony-bin sat at 0.1.4 across nine releases before that was noticed. A
+# poller has no cross-repo trigger to suppress, needs no write token in ten
+# other repositories, and picks up any release it missed on the next tick.
+#
+# It also builds what it bumped BEFORE pushing, for the same reason: a push
+# made with GITHUB_TOKEN does not trigger ci.yml either, so a bump verified
+# only by CI-on-push would never actually be verified.
+name: Update sources
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-sources
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Refresh sources.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/update.sh
+
+      - name: Detect changes
+        id: diff
+        run: |
+          if git diff --quiet -- sources.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "sources.json is already current."
+            exit 0
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          git --no-pager diff -- sources.json
+          summary=$(jq -rn \
+            --argjson b "$(git show HEAD:sources.json)" \
+            --argjson a "$(cat sources.json)" '
+              [ $a
+                | to_entries[]
+                | select(.value.version != ($b[.key].version // null))
+                | "\(.key) \($b[.key].version // "new") -> \(.value.version)"
+              ] | join(", ")')
+          echo "summary=${summary}" >> "$GITHUB_OUTPUT"
+
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+        if: steps.diff.outputs.changed == 'true'
+
+      - name: Build every package before trusting the bump
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          nix flake check --all-systems
+          # Derived from the flake rather than hardcoded, so adding a package
+          # to sources.json does not also require editing this workflow.
+          nix eval --json --apply builtins.attrNames .#packages.x86_64-linux \
+            | jq -r '.[]' \
+            | grep -vx default \
+            | while read -r pkg; do
+                echo "::group::nix build .#${pkg}"
+                nix build --print-build-logs ".#${pkg}"
+                echo "::endgroup::"
+              done
+
+      - name: Commit and push
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          SUMMARY: ${{ steps.diff.outputs.summary }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sources.json
+          if [ -f flake.lock ]; then git add flake.lock; fi
+          git commit -m "chore: ${SUMMARY}"
+          git push

@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+
+      # Evaluates aarch64 too, which catches a broken expression there even
+      # though this runner cannot build it.
+      - run: nix flake check --all-systems
+
+      - run: nix build --print-build-logs .#spherecord
+
+      - name: Smoke test the wrapper
+        run: |
+          test -x result/bin/spherecord
+          test -f result/share/applications/gg.spherecord.app.desktop
+          echo "--- desktop entry ---"
+          cat result/share/applications/gg.spherecord.app.desktop
+
+      - name: Show what the icons ended up as
+        run: find result/share/icons -type f 2>/dev/null | head || echo "no icons installed"
