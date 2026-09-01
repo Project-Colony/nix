@@ -30,13 +30,17 @@ let
   # its internal copy cannot silently produce a broken Exec line.
   extracted = appimageTools.extract { inherit pname version src; };
 
+  # Upstream's own template declares `Icon=gg.spherecord.app`, which is correct
+  # for electron-builder's installers because they rename the icon files as they
+  # install them. The AppImage does not: its icons are hicolor/*/apps/spherecord.png.
+  # Copying the template verbatim therefore yields a launcher entry with no icon.
   desktopEntry = writeText "gg.spherecord.app.desktop" ''
     [Desktop Entry]
     Name=SphereCord
     GenericName=Internet Messenger
     Type=Application
     Exec=spherecord %U
-    Icon=gg.spherecord.app
+    Icon=spherecord
     Categories=Network;InstantMessaging;Chat;
     Keywords=discord;vencord;electron;chat;spherecord;
     MimeType=x-scheme-handler/discord;

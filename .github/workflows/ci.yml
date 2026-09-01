@@ -29,5 +29,14 @@ jobs:
           echo "--- desktop entry ---"
           cat result/share/applications/gg.spherecord.app.desktop
 
-      - name: Show what the icons ended up as
-        run: find result/share/icons -type f 2>/dev/null | head || echo "no icons installed"
+      # The desktop entry naming its icon and the icon actually existing are two
+      # different facts, and upstream's template gets the second one wrong for
+      # the AppImage. Assert they agree rather than eyeballing a file listing.
+      - name: The declared icon must actually be installed
+        run: |
+          icon=$(sed -n 's/^Icon=//p' result/share/applications/gg.spherecord.app.desktop)
+          echo "desktop entry asks for icon: ${icon}"
+          found=$(find result/share/icons -type f -name "${icon}.png" | wc -l)
+          echo "matching icon files installed: ${found}"
+          test "${found}" -gt 0
+          find result/share/icons -type f | sort
