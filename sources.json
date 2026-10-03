@@ -1,10 +1,10 @@
 {
   "spherecord": {
     "hashes": {
-      "aarch64-linux": "sha256-TgQi6ZDWrYjL9+gUWxfPtaimdJQcLAd+g8xktE8cWyQ=",
-      "x86_64-linux": "sha256-qGV2aZ1dVI4NZrDJkJAeHojsgM5Bd+3WQlvAmlcE8sc="
+      "aarch64-linux": "sha256-sSbgPsO5sDMxvr1Ax1f/mNVC+vXk0Fg4nOGa8s9EUZk=",
+      "x86_64-linux": "sha256-qi5lB2Rgo7SRTNBNbNprGjJORJaHkR4H44iZv4RjjDI="
     },
-    "tag": "v3.3.4",
-    "version": "3.3.4"
+    "tag": "v3.3.5",
+    "version": "3.3.5"
   }
 }
