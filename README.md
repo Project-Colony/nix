@@ -5,7 +5,8 @@ ecosystem, kept current automatically.
 
 Nix has no AUR. Nixpkgs is a reviewed monorepo, so it cannot follow our
 releases at our pace; this repository is the equivalent of maintaining our own
-package repo, and it tracks upstream releases within the hour.
+package repo, and it picks up a new upstream release within a few hours (see
+[How updates work](#how-updates-work)).
 
 ## Install
 
@@ -57,14 +58,23 @@ from source, which is why installing is a download rather than a compile.
 ## How updates work
 
 `scripts/update.sh` reads each upstream repo's latest release and rewrites
-`sources.json`. `.github/workflows/update.yml` runs it hourly, **builds every
-package to prove the bump is good, and only then commits**.
+`sources.json`. `.github/workflows/update.yml` runs it, **builds every package
+to prove the bump is good, and only then commits**.
 
-It never downloads a release asset to hash it: GitHub's release API returns
-each asset's sha256 in `digest`, and a Nix SRI hash is that same digest
-base64-encoded. So the updater is `gh` plus `jq` plus `python3`, it finishes in
-seconds, and it needs no Nix at all. The download path in the script exists
-only for assets published before GitHub started emitting `digest`.
+The workflow is scheduled hourly, but GitHub delays and skips scheduled runs on
+busy runners: from 1 September to 7 October 2026 they landed 2 to 9 hours apart,
+about 4.5 hours on average. Expect a release here within a few hours, not
+within the hour. A maintainer can trigger it immediately from the Actions tab
+(`workflow_dispatch`).
+
+Every new hash is checked against the release signature first. The updater
+downloads the asset and its detached `<asset>.sig`, and verifies it with
+`openssl` against the same ed25519 public key Colony embeds for its own
+self-update. A missing or invalid signature fails the update and nothing is
+committed. An asset whose API `digest` still matches the hash already in
+`sources.json` was verified when that hash was recorded, so a run with nothing
+new downloads nothing and finishes in seconds. The updater needs `gh`, `jq`,
+`python3`, `curl` and `openssl`, and no Nix.
 
 Run it by hand any time:
 
@@ -88,7 +98,8 @@ Run it by hand any time:
 
 ## Adding a package
 
-1. Add a line to the `PACKAGES` table at the top of `scripts/update.sh`.
+1. Add a line to the `PACKAGES` table at the top of `scripts/update.sh`. The
+   upstream release must publish a signed `<asset>.sig` next to each asset.
 2. Add `pkgs/<name>/package.nix`.
 3. Add it to `packagesFor` in `flake.nix`.
 4. Run `./scripts/update.sh` and commit the resulting `sources.json`.
