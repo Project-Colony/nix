@@ -70,11 +70,18 @@ within the hour. A maintainer can trigger it immediately from the Actions tab
 Every new hash is checked against the release signature first. The updater
 downloads the asset and its detached `<asset>.sig`, and verifies it with
 `openssl` against the same ed25519 public key Colony embeds for its own
-self-update. A missing or invalid signature fails the update and nothing is
-committed. An asset whose API `digest` still matches the hash already in
-`sources.json` was verified when that hash was recorded, so a run with nothing
-new downloads nothing and finishes in seconds. The updater needs `gh`, `jq`,
-`python3`, `curl` and `openssl`, and no Nix.
+self-update. When the release also publishes `<asset>.meta`, its
+`<asset>.meta.sig` must verify as well and the file must name exactly that tag,
+asset and sha256, so a validly signed file from another release cannot stand
+in. A missing or invalid signature fails the update and nothing is committed.
+The one exception is a file not yet uploaded to a release under two hours old:
+that release is skipped until a later run. A latest release older than the
+version already in `sources.json` is refused, so an upstream release that is
+deleted or no longer marked latest cannot roll anyone back. An asset whose API
+`digest` and download URL still match what `sources.json` records was verified
+when it was recorded, so a run with nothing new downloads nothing and finishes
+in seconds. The updater needs `gh`, `jq`, `python3`, `curl` and `openssl`, and
+no Nix.
 
 Once a week (Monday, 04:41 UTC) the same workflow also runs `nix flake update`,
 so the pinned nixpkgs follows `nixos-unstable` through the same
