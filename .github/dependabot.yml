@@ -1,9 +1,28 @@
+# Keep the supply chain current: GitHub Actions.
+#
+# Copied from templates/dependabot.yml in Project-Colony-Resources, without
+# its cargo entry: this repository has no Cargo. There is no nix entry either,
+# because dependabot-core's nix ecosystem is not available. The weekly
+# `nix flake update` run of .github/workflows/update.yml keeps nixpkgs current
+# instead.
+#
+# Dependabot opening a PR is not the rule being followed; merging it is. See
+# design/dependencies.md: everything is on its latest release, always.
 version: 2
 updates:
+  # A stale action is the same problem as a stale crate, with more privileges.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    # The shared signing workflow stays at the organisation pin, which moves
+    # for every program at once: design/releases.md in
+    # Project-Colony-Resources, "The pin". A Dependabot PR would move one
+    # repository alone. Dependabot names that dependency after the workflow
+    # path (Project-Colony/Project-Colony-Resources/.github/workflows/...), so
+    # the rule needs the trailing wildcard to match it.
+    ignore:
+      - dependency-name: "Project-Colony/Project-Colony-Resources*"
     groups:
-      github-actions:
-        update-types: [minor, patch]
+      actions:
+        patterns: ["*"]

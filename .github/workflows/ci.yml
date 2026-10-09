@@ -11,16 +11,39 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Every system the flake declares, each on a native runner, so aarch64 is
+    # built and smoke-tested rather than only evaluated.
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
 
-      # Evaluates aarch64 too, which catches a broken expression there even
-      # though this runner cannot build it.
-      - run: nix flake check --all-systems
+      # Evaluation does not depend on the runner, so one leg is enough.
+      - name: Check the flake for every system
+        if: matrix.runner == 'ubuntu-latest'
+        run: nix flake check --all-systems
 
-      - run: nix build --print-build-logs .#spherecord
+      - name: Build every package
+        run: |
+          set -o pipefail
+          system=$(nix eval --impure --raw --expr builtins.currentSystem)
+          # Derived from the flake rather than hardcoded, so adding a package
+          # does not also require editing this workflow.
+          nix eval --json --apply builtins.attrNames ".#packages.${system}" \
+            | jq -r '.[]' \
+            | grep -vx default \
+            | while read -r pkg; do
+                echo "::group::nix build .#${pkg}"
+                nix build --print-build-logs ".#${pkg}"
+                echo "::endgroup::"
+              done
+
+      # Already built above, so this only points `result` at SphereCord.
+      - run: nix build .#spherecord -o result
 
       - name: Smoke test the wrapper
         run: |
@@ -40,3 +63,11 @@ jobs:
           echo "matching icon files installed: ${found}"
           test "${found}" -gt 0
           find result/share/icons -type f | sort
+
+  # The updater is the one piece of trust-critical code here: it decides which
+  # hashes get committed.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: shellcheck scripts/update.sh
