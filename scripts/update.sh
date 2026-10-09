@@ -35,7 +35,9 @@ cd "$(dirname "$0")/.."
 # asset field empty when that architecture is not published. <meta> is empty
 # or `required`: `required` fails the run when an asset has no signed
 # <asset>.meta, while empty accepts .sig alone but still checks a .meta that
-# the release does publish.
+# the release does publish. Limit of empty: on a young release that does not
+# list any .meta file yet, the hash is recorded on .sig alone and that tag's
+# .meta is never checked later. `required` closes that gap.
 PACKAGES=(
     # Set spherecord's <meta> to `required` once SphereCord releases through
     # the shared sign-and-publish.yml, which publishes .meta and .meta.sig.
@@ -83,9 +85,16 @@ verify_signature() {
     return 1
 }
 
-# has_asset <name>: whether the current $release lists an asset by that name.
+# has_asset <name>: whether the current $release has finished uploading an
+# asset by that name. One still uploading counts as missing.
 has_asset() {
-    jq -e --arg n "$1" 'any(.assets[]; .name == $n)' <<<"$release" >/dev/null
+    jq -e --arg n "$1" 'any(.assets[]; .name == $n and .state == "uploaded")' <<<"$release" >/dev/null
+}
+
+# lists_meta <asset>: whether the current $release lists <asset>.meta or
+# <asset>.meta.sig in any state.
+lists_meta() {
+    jq -e --arg n "$1.meta" 'any(.assets[]; .name == $n or .name == $n + ".sig")' <<<"$release" >/dev/null
 }
 
 recorded=$(cat sources.json 2>/dev/null || echo '{}')
@@ -112,7 +121,9 @@ for entry in "${PACKAGES[@]}"; do
         [ -n "$tmpl" ] || continue
         asset=${tmpl//%V/$version}
         needed=("$asset" "$asset.sig")
-        if [ "$meta" = required ]; then
+        # A listed .meta is checked even when not required, so both of its
+        # files must be complete, like the asset and its .sig.
+        if [ "$meta" = required ] || lists_meta "$asset"; then
             needed+=("$asset.meta" "$asset.meta.sig")
         fi
         for file in "${needed[@]}"; do
@@ -163,12 +174,9 @@ for entry in "${PACKAGES[@]}"; do
             echo "  ok ${system}: signature verified" >&2
 
             # Presence comes from the asset list rather than from a failed
-            # download, so a network error can never pass for "no .meta".
+            # download, so a network error can never pass for "no .meta". The
+            # check above already made sure a listed .meta has its .meta.sig.
             if has_asset "$asset.meta"; then
-                if ! has_asset "$asset.meta.sig"; then
-                    echo "  !! ${system}: ${asset}.meta has no .meta.sig in ${tag}" >&2
-                    exit 1
-                fi
                 "${CURL_SMALL[@]}" -o "$work/asset.meta" "${url}.meta"
                 "${CURL_SMALL[@]}" -o "$work/asset.meta.sig" "${url}.meta.sig"
                 if ! verify_signature "$work/asset.meta" "$work/asset.meta.sig"; then

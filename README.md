@@ -73,14 +73,15 @@ downloads the asset and its detached `<asset>.sig`, and verifies it with
 self-update. When the release also publishes `<asset>.meta`, its
 `<asset>.meta.sig` must verify as well and the file must name exactly that tag,
 asset and sha256, so a validly signed file from another release cannot stand
-in. A missing or invalid signature fails the update and nothing is committed,
-except on a release less than two hours old that is still uploading, which is
-skipped until a later run. A latest release older than the version already in
-`sources.json` is refused, so an upstream release that is deleted or no longer
-marked latest cannot roll anyone back. An asset whose API `digest` and download
-URL still match what `sources.json` records was verified when it was recorded,
-so a run with nothing new downloads nothing and finishes in seconds. The
-updater needs `gh`, `jq`, `python3`, `curl` and `openssl`, and no Nix.
+in. A missing or invalid signature fails the update and nothing is committed.
+The one exception is a file not yet uploaded to a release under two hours old:
+that release is skipped until a later run. A latest release older than the
+version already in `sources.json` is refused, so an upstream release that is
+deleted or no longer marked latest cannot roll anyone back. An asset whose API
+`digest` and download URL still match what `sources.json` records was verified
+when it was recorded, so a run with nothing new downloads nothing and finishes
+in seconds. The updater needs `gh`, `jq`, `python3`, `curl` and `openssl`, and
+no Nix.
 
 Once a week (Monday, 04:41 UTC) the same workflow also runs `nix flake update`,
 so the pinned nixpkgs follows `nixos-unstable` through the same
