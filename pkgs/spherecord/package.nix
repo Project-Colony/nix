@@ -16,11 +16,12 @@ let
     sources.spherecord.hashes.${system}
       or (throw "spherecord: no AppImage is published for ${system}");
 
-  # SphereCord publishes one AppImage per arch, the x86_64 one unsuffixed.
-  suffix = if system == "aarch64-linux" then "-arm64" else "";
-
+  # The exact URL scripts/update.sh resolved and verified, so the asset naming
+  # lives in one place (its PACKAGES table).
   src = fetchurl {
-    url = "https://github.com/Project-Colony/SphereCord/releases/download/v${version}/SphereCord-${version}${suffix}.AppImage";
+    url =
+      sources.spherecord.urls.${system}
+        or (throw "spherecord: no AppImage is published for ${system}");
     inherit hash;
   };
 
