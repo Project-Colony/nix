@@ -12,16 +12,24 @@
 # made with GITHUB_TOKEN does not trigger ci.yml either, so a bump verified
 # only by CI-on-push would never actually be verified.
 #
-# Two jobs, so the write token never meets Nix or anything downloaded:
+# Three jobs, so the write token never meets Nix or anything downloaded:
 #
 # - `prepare` holds a read-only token. It runs update.sh (which downloads and
 #   verifies release assets), installs Nix, optionally moves nixpkgs, checks
-#   and builds every package, and hands sources.json and flake.lock on as an
-#   artifact. A third-party installer action, the Nix daemon, the release
-#   assets and every package build run here, where the token cannot push.
-# - `publish` holds `contents: write` and does nothing but copy those two
-#   files over a fresh checkout, refuse anything else, commit and push. It
-#   never installs Nix and never runs code from the artifact.
+#   the flake for every system, builds every x86_64-linux package, and hands
+#   sources.json and flake.lock on as an artifact. A third-party installer
+#   action, the Nix daemon, the release assets and every package build run
+#   here or in `build-arm`, where the token cannot push.
+# - `build-arm` holds a read-only token too. It copies those two files over
+#   the same commit on a native arm64 runner and builds every aarch64-linux
+#   package, so the arm64 asset is proven by a build as well, not only
+#   evaluated.
+# - `publish` waits for both builds. It holds `contents: write` and does
+#   nothing but copy those two files over a fresh checkout, refuse anything
+#   else, commit and push. It never installs Nix and never runs code from the
+#   artifact. It runs on main only: a manual run on another branch builds the
+#   bump and stops there, so a change to this workflow can be tried before it
+#   merges.
 #
 # The hourly tick follows app releases. The weekly tick (and a manual run with
 # `nixpkgs` ticked) also moves nixpkgs through `nix flake update`, through the
@@ -121,6 +129,7 @@ jobs:
       - name: Build every package before trusting the bump
         if: steps.diff.outputs.changed == 'true'
         run: |
+          set -o pipefail
           nix flake check --all-systems
           # Derived from the flake rather than hardcoded, so adding a package
           # to sources.json does not also require editing this workflow.
@@ -143,9 +152,46 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  publish:
+  build-arm:
     needs: prepare
     if: needs.prepare.outputs.changed == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      # Same commit prepare built against (github.sha).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sources
+          path: ${{ runner.temp }}/sources
+
+      - name: Use the bumped sources.json and flake.lock
+        run: cp "$RUNNER_TEMP/sources/sources.json" "$RUNNER_TEMP/sources/flake.lock" .
+
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+        with:
+          diagnostic-endpoint: ""
+
+      - name: Build every aarch64-linux package before trusting the bump
+        run: |
+          set -o pipefail
+          nix eval --json --apply builtins.attrNames .#packages.aarch64-linux \
+            | jq -r '.[]' \
+            | grep -vx default \
+            | while read -r pkg; do
+                echo "::group::nix build .#${pkg}"
+                nix build --print-build-logs ".#${pkg}"
+                echo "::endgroup::"
+              done
+
+  publish:
+    needs: [prepare, build-arm]
+    if: needs.prepare.outputs.changed == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

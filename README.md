@@ -59,7 +59,7 @@ from source, which is why installing is a download rather than a compile.
 
 `scripts/update.sh` reads each upstream repo's latest release and rewrites
 `sources.json`. `.github/workflows/update.yml` runs it, **builds every package
-to prove the bump is good, and only then commits**.
+on both x86_64 and aarch64 to prove the bump is good, and only then commits**.
 
 The workflow is scheduled hourly, but GitHub delays and skips scheduled runs on
 busy runners: from 1 September to 7 October 2026 they landed 2 to 9 hours apart,
@@ -89,12 +89,14 @@ build-before-commit gate. The commit names the move, for example
 `chore: nixpkgs c59305b..e7439b6`. Tick `nixpkgs` when triggering the workflow
 by hand to do it immediately.
 
-The workflow is split in two jobs so the token that can push never meets Nix
+The workflow is split in three jobs so the token that can push never meets Nix
 or anything downloaded. The first job holds a read-only token: it runs the
-updater, installs Nix, checks and builds every package, and passes
-`sources.json` and `flake.lock` on as an artifact. The second job holds the
-write token, installs nothing, refuses to commit if anything but those two
-files changed, and pushes.
+updater, installs Nix, checks the flake, builds every x86_64 package, and
+passes `sources.json` and `flake.lock` on as an artifact. The second, also
+read-only, builds every aarch64 package from that artifact on a native arm64
+runner. The last job waits for both, holds the write token, installs nothing,
+refuses to commit if anything but those two files changed, and pushes. It only
+pushes from `main`: a run started on another branch builds and stops there.
 
 Run it by hand any time:
 
@@ -114,8 +116,10 @@ nix flake update   # only to move nixpkgs as well
 - **Disk.** The AppImage is 166 MB and Nix keeps both the fetched file and the
   extracted tree, so budget roughly 350 MB per retained version until
   `nix-collect-garbage` runs.
-- **aarch64 is unverified.** The expression covers it and CI evaluates it, but
-  no CI runner builds it yet.
+- **aarch64 is built, not run.** CI and every update build it natively on an
+  arm64 runner, and CI checks the installed wrapper, desktop entry and icon.
+  CI never launches the app, and nobody has reported running it on aarch64
+  yet.
 
 ## Adding a package
 
@@ -125,5 +129,5 @@ nix flake update   # only to move nixpkgs as well
 3. Add it to `packagesFor` in `flake.nix`.
 4. Run `./scripts/update.sh` and commit the resulting `sources.json`.
 
-CI derives the list of packages to build from the flake itself, so it needs no
-change.
+CI derives the list of packages to build from the flake itself and builds each
+one natively on x86_64 and aarch64, so it needs no change.
