@@ -76,10 +76,24 @@ committed. An asset whose API `digest` still matches the hash already in
 new downloads nothing and finishes in seconds. The updater needs `gh`, `jq`,
 `python3`, `curl` and `openssl`, and no Nix.
 
+Once a week (Monday, 04:41 UTC) the same workflow also runs `nix flake update`,
+so the pinned nixpkgs follows `nixos-unstable` through the same
+build-before-commit gate. The commit names the move, for example
+`chore: nixpkgs c59305b..e7439b6`. Tick `nixpkgs` when triggering the workflow
+by hand to do it immediately.
+
+The workflow is split in two jobs so the token that can push never meets Nix
+or anything downloaded. The first job holds a read-only token: it runs the
+updater, installs Nix, checks and builds every package, and passes
+`sources.json` and `flake.lock` on as an artifact. The second job holds the
+write token, installs nothing, refuses to commit if anything but those two
+files changed, and pushes.
+
 Run it by hand any time:
 
 ```bash
 ./scripts/update.sh
+nix flake update   # only to move nixpkgs as well
 ```
 
 ## Known rough edges
