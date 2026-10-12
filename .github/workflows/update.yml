@@ -31,18 +31,16 @@
 #   bump and stops there, so a change to this workflow can be tried before it
 #   merges.
 #
-# The hourly tick follows app releases. The weekly tick (and a manual run with
-# `nixpkgs` ticked) also moves nixpkgs through `nix flake update`, through the
-# same build-before-push gate, so the lock never ages unnoticed. It also keeps
-# the repository active, so GitHub does not disable the schedule after 60 quiet
-# days.
+# The hourly tick follows app releases. A tick that finds the pinned nixpkgs
+# more than 7 days old (and a manual run with `nixpkgs` ticked) also moves it
+# through `nix flake update`, through the same build-before-push gate, so the
+# lock never ages unnoticed. Those weekly commits also keep the repository
+# active, so GitHub does not disable the schedule after 60 quiet days.
 name: Update sources
 
 on:
   schedule:
     - cron: "17 * * * *"
-    # Keep in sync with BUMP_NIXPKGS below.
-    - cron: "41 4 * * 1"
   workflow_dispatch:
     inputs:
       nixpkgs:
@@ -61,8 +59,6 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
-    env:
-      BUMP_NIXPKGS: ${{ github.event.schedule == '41 4 * * 1' || inputs.nixpkgs == true }}
     outputs:
       changed: ${{ steps.diff.outputs.changed }}
       summary: ${{ steps.diff.outputs.summary }}
@@ -76,12 +72,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: ./scripts/update.sh
 
+      # nixpkgs moves when a manual run asks for it or when the pinned revision
+      # is more than 7 days old. By age rather than on a weekly cron: GitHub
+      # skips scheduled runs, and one skipped weekly tick left nixpkgs two
+      # weeks behind, while any later hourly tick catches an old lock.
       # A run with no new release and no nixpkgs bump stops here in seconds,
       # without installing Nix.
       - name: Decide whether Nix is needed
         id: need
+        env:
+          NIXPKGS_REQUESTED: ${{ inputs.nixpkgs == true }}
         run: |
-          if [ "$BUMP_NIXPKGS" = true ] || ! git diff --quiet -- sources.json; then
+          locked=$(jq -e .nodes.nixpkgs.locked.lastModified flake.lock)
+          age=$(( $(date +%s) - locked ))
+          if [ "$NIXPKGS_REQUESTED" = true ] || [ "$age" -gt $(( 7 * 86400 )) ]; then
+            echo "nixpkgs=true" >> "$GITHUB_OUTPUT"
+            echo "nix=true" >> "$GITHUB_OUTPUT"
+          elif ! git diff --quiet -- sources.json; then
             echo "nix=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -91,7 +98,7 @@ jobs:
           diagnostic-endpoint: ""
 
       - name: Move nixpkgs to the current nixos-unstable
-        if: env.BUMP_NIXPKGS == 'true'
+        if: steps.need.outputs.nixpkgs == 'true'
         run: nix flake update
 
       - name: Detect changes

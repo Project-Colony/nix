@@ -129,11 +129,15 @@ upstream publishes `.meta` files, which SphereCord does not do yet. The key
 list at the top of `scripts/update.sh` is a copy of `RELEASE_PUBLIC_KEYS` in
 Colony's `src/signing.rs`, and changes with it when the org rotates its key.
 
-Once a week (Monday, 04:41 UTC) the same workflow also runs `nix flake update`,
-so the pinned nixpkgs follows `nixos-unstable` through the same
-build-before-commit gate. The commit names the move, for example
+The same workflow also runs `nix flake update` on any run that finds the
+pinned nixpkgs more than 7 days old, so it follows `nixos-unstable` through
+the same build-before-commit gate. It goes by the age of the lock rather than
+by a weekly schedule, so a scheduled run that GitHub skips only delays the move
+to the next run that does start. The commit names the move, for example
 `chore: nixpkgs c59305b..e7439b6`. Tick `nixpkgs` when triggering the workflow
-by hand to do it immediately.
+by hand to do it immediately. A nixpkgs that no longer builds a package fails
+every run until someone fixes it, app bumps included, so a broken pin is loud
+rather than quietly old.
 
 The workflow is split in three jobs so the token that can push never meets Nix
 or anything downloaded. The first job holds a read-only token: it runs the
@@ -174,27 +178,10 @@ nix flake update   # only to move nixpkgs as well
   CI never launches the app, and nobody has reported running it on aarch64
   yet.
 
-## Adding a package
+## Contributing
 
-1. Add a line to the `PACKAGES` table at the top of `scripts/update.sh`:
-   `<nix attribute> | <github repo> | <x86_64 asset> | <aarch64 asset> | <meta>`.
-   `%V` in an asset name stands for the release version (the tag without a
-   leading `v`), and an asset field stays empty when that architecture is not
-   published. The upstream release must publish a signed `<asset>.sig` next to
-   each asset. Set `<meta>` to `required` when it also publishes
-   `<asset>.meta` and `<asset>.meta.sig`, as every release made with the org's
-   shared signing workflow does. Left empty, a `.meta` is checked when the
-   release has one but not demanded.
-2. Add `pkgs/<name>/package.nix`. Take the version from
-   `sources.<name>.version` and fetch `sources.<name>.urls.${system}` with
-   `sources.<name>.hashes.${system}`, as `pkgs/spherecord/package.nix` does, so
-   no package body carries a hand-written URL or hash.
-3. Add it to `packagesFor` in `flake.nix`.
-4. Run `./scripts/update.sh` and open a pull request with the package and the
-   resulting `sources.json`.
-
-CI derives the list of packages to build from the flake itself and builds each
-one natively on x86_64 and aarch64, so it needs no change.
+Adding a package, checking a change locally and what a pull request needs are
+in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Privacy
 
