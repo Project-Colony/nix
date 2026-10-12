@@ -6,12 +6,12 @@
 # There is deliberately no `nix` entry. Dependabot supports that ecosystem
 # (version updates of flake.lock inputs, public repositories), but
 # .github/workflows/update.yml already keeps flake.lock current: any run that
-# finds the pinned nixpkgs more than 7 days old runs `nix flake update`,
-# builds every package on x86_64 and aarch64, and commits only once they all
-# build, with no pull request left waiting for a merge. A Dependabot entry
-# would be a second writer of flake.lock, and each of those commits would
-# leave its open pull request stale. Resources records this as the nix-only
-# exception in design/dependencies.md, "Automation".
+# bumps no app and finds the pinned nixpkgs more than 7 days old runs
+# `nix flake update`, builds every package on x86_64 and aarch64, and commits
+# only once they all build, with no pull request left waiting for a merge.
+# A Dependabot entry would be a second writer of flake.lock, and each of
+# those commits would leave its open pull request stale. Resources records
+# this as the nix-only exception in design/dependencies.md, "Automation".
 #
 # Dependabot opening a PR is not the rule being followed; merging it is. See
 # design/dependencies.md: everything is on its latest release, always.
