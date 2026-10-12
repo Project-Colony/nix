@@ -135,9 +135,11 @@ the same build-before-commit gate. It goes by the age of the lock rather than
 by a weekly schedule, so a scheduled run that GitHub skips only delays the move
 to the next run that does start. The commit names the move, for example
 `chore: nixpkgs c59305b..e7439b6`. Tick `nixpkgs` when triggering the workflow
-by hand to do it immediately. A nixpkgs that no longer builds a package fails
-every run until someone fixes it, app bumps included, so a broken pin is loud
-rather than quietly old.
+by hand to do it immediately. A run that bumps an app leaves nixpkgs alone, so
+the app release lands in its own commit on the current pin, and the next run
+without a new release moves nixpkgs. A nixpkgs that no longer builds a package
+fails those runs until someone fixes it, so a broken pin is loud rather than
+quietly old, but it never holds an app release back.
 
 The workflow is split in three jobs so the token that can push never meets Nix
 or anything downloaded. The first job holds a read-only token: it runs the
