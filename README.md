@@ -127,8 +127,9 @@ against the releases `sources.json` already records, so a change that breaks it
 fails its pull request rather than the next update. The updater must take the
 fast path, then reproduce every recorded hash and URL after downloading and
 verifying each asset again. It must refuse a signature from a key it does not
-trust, a release older than the recorded one and a settled release without
-signatures, and skip a young release whose signatures are still uploading.
+trust, an asset whose download does not match the digest GitHub reports, a
+release older than the recorded one and a settled release without signatures,
+and skip a young release whose signatures are still uploading.
 
 What a valid `.sig` proves is that the file was signed with the org's release
 key, not that SphereCord's own release job built it: every repository that

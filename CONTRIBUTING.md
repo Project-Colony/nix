@@ -21,9 +21,10 @@ shellcheck scripts/*.sh             # when a script changed
 it never changes your `sources.json`. It answers "latest release" with the
 release `sources.json` records, and checks that the updater downloads nothing
 new, reproduces every recorded hash and URL after verifying each asset again,
-refuses an untrusted key, a downgrade and a release without signatures, and
-skips a release still uploading. It downloads every recorded asset once, plus
-one more. CI runs it and `shellcheck` on every pull request.
+refuses an untrusted key, an asset that does not match the API digest, a
+downgrade and a release without signatures, and skips a release still
+uploading. It downloads every recorded asset once, plus two more. CI runs it
+and `shellcheck` on every pull request.
 
 `nix build` only builds for the system you are on. CI builds every package
 natively on both x86_64-linux and aarch64-linux, and smoke-tests the installed

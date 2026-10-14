@@ -11,7 +11,7 @@
 # simulate a missing file or a release still uploading.
 #
 # Needs what update.sh needs. Downloads every recorded asset once (the full
-# re-verification) and one more for the untrusted-key case.
+# re-verification) and one more each for the untrusted-key and digest cases.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -101,6 +101,10 @@ sed -Ei "s/^( *)[0-9a-f]{64}\$/\1${other_key}/" "$dir/scripts/update.sh"
 ! cmp -s scripts/update.sh "$dir/scripts/update.sh" || die "found no key to replace"
 run
 expect_refusal "BAD SIGNATURE"
+
+prepare "an asset whose download does not match the API digest is refused" "$no_urls"
+run '(.assets[] | select(.name | endswith(".AppImage")) | .digest) = "sha256:" + ("0" * 64)'
+expect_refusal "does not match the API digest"
 
 prepare "a latest release older than the recorded version is refused" 'map_values(.version = "9999")'
 run
