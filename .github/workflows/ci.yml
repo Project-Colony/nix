@@ -65,9 +65,19 @@ jobs:
           find result/share/icons -type f | sort
 
   # The updater is the one piece of trust-critical code here: it decides which
-  # hashes get committed.
-  lint:
+  # hashes get committed. Running it here, not only linting it, means a change
+  # that breaks it fails its pull request instead of the first hourly update
+  # after merge. test-update.sh pins the release sources.json records, so an
+  # upstream release made in the meantime cannot fail an unrelated PR.
+  updater:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: shellcheck scripts/update.sh
+        with:
+          persist-credentials: false
+      - run: shellcheck scripts/*.sh
+      - name: Run the updater against the recorded releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/test-update.sh
