@@ -13,8 +13,18 @@ updater also needs `gh` signed in (`gh auth login`, or `GH_TOKEN` set), `jq`,
 ./scripts/update.sh                 # refresh sources.json from the latest releases
 nix flake check --all-systems       # evaluate the flake for x86_64 and aarch64
 nix build .#spherecord              # build one package: nix build .#<attribute>
-shellcheck scripts/update.sh        # when the updater changed
+./scripts/test-update.sh            # when the updater changed: run it through its checks
+shellcheck scripts/*.sh             # when a script changed
 ```
+
+`scripts/test-update.sh` runs copies of the updater in a scratch directory, so
+it never changes your `sources.json`. It answers "latest release" with the
+release `sources.json` records, and checks that the updater downloads nothing
+new, reproduces every recorded hash and URL after verifying each asset again,
+refuses an untrusted key, an asset that does not match the API digest, a
+downgrade and a release without signatures, and skips a release still
+uploading. It downloads every recorded asset once, plus two more. CI runs it
+and `shellcheck` on every pull request.
 
 `nix build` only builds for the system you are on. CI builds every package
 natively on both x86_64-linux and aarch64-linux, and smoke-tests the installed

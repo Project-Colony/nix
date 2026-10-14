@@ -20,10 +20,11 @@ newest release once its signature checks out, so a new version reaches
 > aarch64-linux are built natively in CI, which also checks the installed
 > wrapper, desktop entry and icon on both, and they are built again before
 > every bump is committed. Nobody has reported launching it on aarch64 yet.
-> Signature verification has been proven by hand against SphereCord v3.3.5,
-> but no scheduled run has yet met a new SphereCord release with it switched
-> on. The `.meta` check is wired but not yet exercised: SphereCord does not
-> publish `.meta` files, so today every bump rests on the `.sig` alone.
+> CI downloads the recorded SphereCord AppImages again on every pull request
+> and checks their signatures, but no scheduled run has yet met a new
+> SphereCord release with signature verification switched on. The `.meta`
+> check is wired but not yet exercised: SphereCord does not publish `.meta`
+> files, so today every bump rests on the `.sig` alone.
 
 ## Why a Nix repository
 
@@ -120,6 +121,15 @@ deleted or no longer marked latest cannot roll anyone back. An asset whose API
 when it was recorded, so a run with nothing new downloads nothing and finishes
 in seconds. The updater needs `gh`, `jq`, `python3`, `curl` and `openssl`, and
 no Nix.
+
+CI runs the updater on every pull request with `scripts/test-update.sh`,
+against the releases `sources.json` already records, so a change that breaks it
+fails its pull request rather than the next update. The updater must take the
+fast path, then reproduce every recorded hash and URL after downloading and
+verifying each asset again. It must refuse a signature from a key it does not
+trust, an asset whose download does not match the digest GitHub reports, a
+release older than the recorded one and a settled release without signatures,
+and skip a young release whose signatures are still uploading.
 
 What a valid `.sig` proves is that the file was signed with the org's release
 key, not that SphereCord's own release job built it: every repository that
