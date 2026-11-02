@@ -1,14 +1,14 @@
 {
   "spherecord": {
     "hashes": {
-      "aarch64-linux": "sha256-sSbgPsO5sDMxvr1Ax1f/mNVC+vXk0Fg4nOGa8s9EUZk=",
-      "x86_64-linux": "sha256-qi5lB2Rgo7SRTNBNbNprGjJORJaHkR4H44iZv4RjjDI="
+      "aarch64-linux": "sha256-A5wjV/nYzvunVlXdHipBBwHhBG6wrHUxuxkghzeesHI=",
+      "x86_64-linux": "sha256-fWQ46QdlySZmIuMB+jYpx+a/NQJblnUyqeNJ9ga+ygc="
     },
-    "tag": "v3.3.5",
+    "tag": "v3.3.6",
     "urls": {
-      "aarch64-linux": "https://github.com/Project-Colony/SphereCord/releases/download/v3.3.5/SphereCord-3.3.5-arm64.AppImage",
-      "x86_64-linux": "https://github.com/Project-Colony/SphereCord/releases/download/v3.3.5/SphereCord-3.3.5.AppImage"
+      "aarch64-linux": "https://github.com/Project-Colony/SphereCord/releases/download/v3.3.6/SphereCord-3.3.6-arm64.AppImage",
+      "x86_64-linux": "https://github.com/Project-Colony/SphereCord/releases/download/v3.3.6/SphereCord-3.3.6.AppImage"
     },
-    "version": "3.3.5"
+    "version": "3.3.6"
   }
 }
